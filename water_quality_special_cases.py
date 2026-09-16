@@ -313,6 +313,14 @@ else:
 st.markdown("---")
 st.markdown("#### 🧪 Water Quality Measures - Special Cases")
 
+# --- Show the "saved" confirmation left over from the previous run.
+# The save button below triggers st.rerun() right after saving, which
+# would otherwise wipe out an st.success() call before the user ever
+# sees it. Stashing the message in session_state lets it survive the
+# rerun; it's shown once here, then popped so it doesn't linger forever.
+if st.session_state.get("_special_save_success"):
+    st.success(st.session_state.pop("_special_save_success"))
+
 if len(farm_ponds_df) == 0:
     st.info("No ponds available yet for this farm — nothing to record a special case against.")
 else:
@@ -341,7 +349,9 @@ else:
             row_number = int(pond_row["_row_number"])
             special_value = SPECIAL_SEP.join(dict.fromkeys(selected_cases))
             update_special_case_for_pond(row_number, special_value)
-            st.success(f"✅ Saved special case(s) for Pond {selected_pond}: {special_value}")
+            st.session_state["_special_save_success"] = (
+                f"✅ Saved special case(s) for Pond {selected_pond}: {special_value}"
+            )
             st.rerun()
 
 st.markdown("---")
