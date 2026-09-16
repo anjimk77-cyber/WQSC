@@ -345,5 +345,5 @@ else:
             st.rerun()
 
 st.markdown("---")
-st.markdown("<p style='text-align: center; color: gray;'>KMN Aqua Services - Water Quality Monitoring System</p>",
+st.markdown("<p style='text-align: center; color: gray;'>KMN Aqua Services - Water Quality Monitoring System (Special Cases)</p>",
             unsafe_allow_html=True)
