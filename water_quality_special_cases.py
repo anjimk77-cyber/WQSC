@@ -224,54 +224,6 @@ def get_farm_ponds(df, customer, farm):
     latest_per_pond = sub.groupby("Pond Number", as_index=False).last()
     return latest_per_pond.sort_values(by="Pond Number").reset_index(drop=True)
 
-def get_farm_last_visit_date(df, customer, farm):
-    """Most recent Date across ALL rows on record for this Customer + Farm
-    (not just the latest-per-pond rows used for the pond layout) — used
-    to show a single 'Last Visit Date' for the farm as a whole."""
-    required = {"Customer", "Farm Name with Code", "Date"}
-    if len(df) == 0 or not required.issubset(df.columns):
-        return None
-    sub = df[(df["Customer"] == customer) & (df["Farm Name with Code"] == farm)]
-    parsed = pd.to_datetime(sub.get("Date"), errors="coerce").dropna()
-    if len(parsed) == 0:
-        return None
-    return parsed.max().date()
-
-def _display_cycle(cycle_value):
-    """Cycle Type / Pond Harvest (Latest Update) value for badge display.
-    'Full Harvest' is shown abbreviated as 'Full H' and 'Partial Harvest'
-    as 'Partial H' to keep the pond badges compact; every other value
-    (Culture, etc.) is shown as-is."""
-    c = str(cycle_value or "").strip()
-    c_lower = c.lower()
-    if c_lower == "full harvest":
-        return "Full H"
-    if c_lower == "partial harvest":
-        return "Partial H"
-    return c or "-"
-
-def get_all_special_cases_entries(df):
-    """Every row across the whole sheet that has a WQ Special Cases value
-    recorded, reshaped for the summary table at the bottom of the page.
-    This is independent of whichever Customer/Farm is currently selected
-    above, and is sorted by Entered Date, most recent first."""
-    empty_cols = ["Entered Date", "Customer Name", "Farm Name with Code", "Pond No", SPECIAL_COL_NAME]
-    if len(df) == 0 or SPECIAL_COL_NAME not in df.columns:
-        return pd.DataFrame(columns=empty_cols)
-    sub = df[df[SPECIAL_COL_NAME].astype(str).str.strip() != ""].copy()
-    if len(sub) == 0:
-        return pd.DataFrame(columns=empty_cols)
-    out = pd.DataFrame({
-        "Entered Date": sub.get("Date", ""),
-        "Customer Name": sub.get("Customer", ""),
-        "Farm Name with Code": sub.get("Farm Name with Code", ""),
-        "Pond No": sub.get("Pond Number", ""),
-        SPECIAL_COL_NAME: sub[SPECIAL_COL_NAME],
-    })
-    out["_ParsedDate"] = pd.to_datetime(out["Entered Date"], errors="coerce")
-    out = out.sort_values(by="_ParsedDate", ascending=False).drop(columns=["_ParsedDate"])
-    return out.reset_index(drop=True)
-
 def update_special_case_for_pond(row_number, special_value):
     ws = get_worksheet()
     ws.update_cell(row_number, SPECIAL_COL_INDEX, special_value)
@@ -327,12 +279,6 @@ st.markdown("#### 🗺️ Pond Layout")
 df_sheet = load_sheet_df()
 farm_ponds_df = get_farm_ponds(df_sheet, customer, farm)
 
-last_visit_date = get_farm_last_visit_date(df_sheet, customer, farm)
-if last_visit_date is not None:
-    st.caption(f"🗓️ Last Visit Date for {farm}: **{last_visit_date.strftime('%Y-%m-%d')}**")
-else:
-    st.caption(f"🗓️ Last Visit Date for {farm}: **-**")
-
 if len(farm_ponds_df) == 0:
     st.info("No saved Pond Details records yet for this farm. Add pond records in the main "
             "Water Quality & Harvest Report app first, then come back here.")
@@ -341,7 +287,7 @@ else:
     for _, prow in farm_ponds_df.iterrows():
         pond = prow.get("Pond Number", "")
         species = prow.get("Species Culture", "") or "-"
-        cycle = _display_cycle(prow.get("Cycle Type", ""))
+        cycle = prow.get("Cycle Type", "") or "-"
         doc = prow.get("DOC", "") or "-"
         current_special = prow.get(SPECIAL_COL_NAME, "") if SPECIAL_COL_NAME in prow else ""
         special_html = (
@@ -407,20 +353,6 @@ else:
                 f"✅ Saved special case(s) for Pond {selected_pond}: {special_value}"
             )
             st.rerun()
-
-# =========================================================================
-# STEP 4: USER ENTERED SPECIAL CASES DATA — a log of every WQ Special
-# Cases entry saved through this app, across all customers/farms, most
-# recent first.
-# =========================================================================
-st.markdown("---")
-st.markdown("#### 📝 User Entered Special Cases Data")
-
-special_entries_df = get_all_special_cases_entries(df_sheet)
-if len(special_entries_df) == 0:
-    st.info("No special cases recorded yet.")
-else:
-    st.dataframe(special_entries_df, use_container_width=True, hide_index=True)
 
 st.markdown("---")
 st.markdown("<p style='text-align: center; color: gray;'>KMN Aqua Services - Water Quality Monitoring System (Special Cases)</p>",
