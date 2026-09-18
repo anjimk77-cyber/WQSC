@@ -19,6 +19,10 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapi
 # header self-heal logic (that app only ever rewrites the first
 # len(COLUMN_ORDER) header cells — it never touches anything after them).
 SPECIAL_COL_NAME = "WQ Special Cases"
+# Separate column that records WHEN a special case was actually saved
+# through this app (i.e. the submit date), as opposed to "Date" which is
+# the water-quality visit/report date already owned by the main app.
+SPECIAL_ENTERED_DATE_COL_NAME = "WQ Special Cases Entered Date"
 SPECIAL_SEP = ", "
 
 SPECIAL_CASE_OPTIONS = [
@@ -134,20 +138,32 @@ def get_worksheet():
     return ws
 
 def ensure_special_column(ws):
-    """Makes sure the 'WQ Special Cases' column exists in the sheet.
-    If it doesn't, appends it as a brand-new column right after every
+    """Makes sure the 'WQ Special Cases' column AND the
+    'WQ Special Cases Entered Date' column exist in the sheet. If either
+    is missing, it's appended as a brand-new column right after every
     existing header cell — never overwrites or reorders any column the
-    main app already owns. Returns the column's 1-based index."""
+    main app already owns. Returns (special_col_index, special_date_col_index),
+    both 1-based."""
     header = ws.row_values(1)
+
     if SPECIAL_COL_NAME in header:
-        return header.index(SPECIAL_COL_NAME) + 1
-    new_col_index = len(header) + 1
-    ws.update_cell(1, new_col_index, SPECIAL_COL_NAME)
-    return new_col_index
+        special_col_index = header.index(SPECIAL_COL_NAME) + 1
+    else:
+        special_col_index = len(header) + 1
+        ws.update_cell(1, special_col_index, SPECIAL_COL_NAME)
+        header = ws.row_values(1)  # refresh so the next check sees it
+
+    if SPECIAL_ENTERED_DATE_COL_NAME in header:
+        special_date_col_index = header.index(SPECIAL_ENTERED_DATE_COL_NAME) + 1
+    else:
+        special_date_col_index = len(header) + 1
+        ws.update_cell(1, special_date_col_index, SPECIAL_ENTERED_DATE_COL_NAME)
+
+    return special_col_index, special_date_col_index
 
 try:
     _ws = get_worksheet()
-    SPECIAL_COL_INDEX = ensure_special_column(_ws)
+    SPECIAL_COL_INDEX, SPECIAL_DATE_COL_INDEX = ensure_special_column(_ws)
 except Exception as e:
     st.error(f"❌ Could not connect to the Google Sheet. Check your secrets and sharing settings.\n\n{e}")
     st.stop()
@@ -249,8 +265,11 @@ def _display_cycle(cycle_value):
 def get_all_special_cases_entries(df):
     """Every row across the whole sheet that has a WQ Special Cases value
     recorded, reshaped for the summary table at the bottom of the page.
-    This is independent of whichever Customer/Farm is currently selected
-    above, and is sorted by Entered Date, most recent first."""
+    'Entered Date' comes from the WQ Special Cases Entered Date column
+    (i.e. when it was actually saved through this app), NOT the water
+    quality visit 'Date'. This is independent of whichever Customer/Farm
+    is currently selected above, and is sorted by Entered Date, most
+    recent first."""
     empty_cols = ["Entered Date", "Customer Name", "Farm Name with Code", "Pond No", SPECIAL_COL_NAME]
     if len(df) == 0 or SPECIAL_COL_NAME not in df.columns:
         return pd.DataFrame(columns=empty_cols)
@@ -258,7 +277,7 @@ def get_all_special_cases_entries(df):
     if len(sub) == 0:
         return pd.DataFrame(columns=empty_cols)
     out = pd.DataFrame({
-        "Entered Date": sub.get("Date", ""),
+        "Entered Date": sub.get(SPECIAL_ENTERED_DATE_COL_NAME, ""),
         "Customer Name": sub.get("Customer", ""),
         "Farm Name with Code": sub.get("Farm Name with Code", ""),
         "Pond No": sub.get("Pond Number", ""),
@@ -269,8 +288,12 @@ def get_all_special_cases_entries(df):
     return out.reset_index(drop=True)
 
 def update_special_case_for_pond(row_number, special_value):
+    """Saves the special case value AND stamps today's date into the
+    WQ Special Cases Entered Date column — this is the actual submit
+    date shown as 'Entered Date' in the summary table below."""
     ws = get_worksheet()
     ws.update_cell(row_number, SPECIAL_COL_INDEX, special_value)
+    ws.update_cell(row_number, SPECIAL_DATE_COL_INDEX, date.today().strftime("%Y-%m-%d"))
     bump_data_version()
 
 # =========================================================================
@@ -407,7 +430,8 @@ else:
 # =========================================================================
 # STEP 4: USER ENTERED SPECIAL CASES DATA — a log of every WQ Special
 # Cases entry saved through this app, across all customers/farms, most
-# recent first.
+# recent first. "Entered Date" is the actual save/submit date, not the
+# water quality visit date.
 # =========================================================================
 st.markdown("---")
 st.markdown("#### 📝 User Entered Special Cases Data")
