@@ -238,12 +238,16 @@ def get_farm_last_visit_date(df, customer, farm):
     return parsed.max().date()
 
 def _display_cycle(cycle_value):
-    """Cycle Type value for badge display. 'Full Harvest' is shown
-    abbreviated as 'Full H' to keep the pond badges compact; every other
-    value (Partial Harvest, Culture, etc.) is shown as-is."""
+    """Cycle Type / Pond Harvest (Latest Update) value for badge display.
+    'Full Harvest' is shown abbreviated as 'Full H' and 'Partial Harvest'
+    as 'Partial H' to keep the pond badges compact; every other value
+    (Culture, etc.) is shown as-is."""
     c = str(cycle_value or "").strip()
-    if c.lower() == "full harvest":
+    c_lower = c.lower()
+    if c_lower == "full harvest":
         return "Full H"
+    if c_lower == "partial harvest":
+        return "Partial H"
     return c or "-"
 
 def get_all_special_cases_entries(df):
