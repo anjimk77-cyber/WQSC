@@ -366,11 +366,27 @@ else:
         special_html = (
             f"<div class='pond-special'>⚠️ {current_special}</div>" if str(current_special).strip() else ""
         )
+
+        # Issues (from this pond's latest saved record) — shown at the
+        # bottom inside the badge as "Disease: <issue>", with the issue
+        # text in red. Stays empty when the latest record has no Issues.
+        issues_val = str(prow.get("Issues", "") or "").strip()
+        issues_html = (
+            "<div style='font-size:0.8rem;font-weight:600;margin-top:4px;"
+            "border-top:1px dashed rgba(128,128,128,0.4);padding-top:3px;'>"
+            "<span>Disease: </span>"
+            "<span style='color:red;'>"
+            f"{issues_val.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')}"
+            "</span></div>"
+            if issues_val and issues_val.lower() != "nan" else ""
+        )
+
         badges_html += (
             "<div class='pond-badge'>"
             f"<div class='pond-num'>Pond {pond}</div>"
             f"<div class='pond-meta'>{species} · {cycle} · DOC {doc}</div>"
             f"{special_html}"
+            f"{issues_html}"
             "</div>"
         )
     badges_html += "</div>"
