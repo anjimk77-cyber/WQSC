@@ -374,7 +374,7 @@ else:
         issues_html = (
             "<div style='font-size:0.8rem;font-weight:600;margin-top:4px;"
             "border-top:1px dashed rgba(128,128,128,0.4);padding-top:3px;'>"
-            "<span>Disease: </span>"
+            "<span></span>"
             "<span style='color:red;'>"
             f"{issues_val.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')}"
             "</span></div>"
